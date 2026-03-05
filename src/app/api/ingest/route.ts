@@ -13,124 +13,213 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
-    // Step 1: Try to fetch Open Graph metadata
+    const hostname = new URL(url).hostname.replace('www.', '')
+    const pathname = new URL(url).pathname
+
+    // Step 1: Open Graph metadata
     let ogData: any = {}
     try {
       const pageRes = await fetch(url, {
-        headers: { 'User-Agent': 'IngestIO/1.0' },
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IngestIO/1.0)' },
         signal: AbortSignal.timeout(8000),
+        redirect: 'follow',
       })
       const html = await pageRes.text()
-      
-      // Extract OG tags
       const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"/) ||
                       html.match(/<meta[^>]*content="([^"]*)"[^>]*property="og:title"/)
       const ogDesc = html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]*)"/) ||
                      html.match(/<meta[^>]*content="([^"]*)"[^>]*property="og:description"/)
       const title = html.match(/<title[^>]*>([^<]*)<\/title>/)
-      
-      ogData = {
-        title: ogTitle?.[1] || title?.[1] || '',
-        description: ogDesc?.[1] || '',
-      }
-    } catch {
-      // Page fetch failed - continue with web search only
-    }
+      ogData = { title: ogTitle?.[1] || title?.[1] || '', description: ogDesc?.[1] || '' }
+    } catch {}
 
-    // Step 2: Try oEmbed for supported platforms
-    let oembedData: any = null
+    // Step 2: Platform-specific extraction
+    let platformData: any = null
+    let platformType = 'generic'
+
     try {
-      const hostname = new URL(url).hostname
-      if (hostname.includes('spotify.com')) {
-        const oembedRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
-        if (oembedRes.ok) oembedData = await oembedRes.json()
-      } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
-        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`)
-        if (oembedRes.ok) oembedData = await oembedRes.json()
+      // ── Twitter/X ──
+      if (hostname.includes('x.com') || hostname.includes('twitter.com')) {
+        platformType = 'twitter'
+        
+        // oEmbed - gets tweet text for public tweets
+        try {
+          const oRes = await fetch(
+            `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`,
+            { signal: AbortSignal.timeout(5000) }
+          )
+          if (oRes.ok) {
+            const data = await oRes.json()
+            let tweetText = ''
+            if (data.html) {
+              const m = data.html.match(/<blockquote[^>]*><p[^>]*>([\s\S]*?)<\/p>/)
+              if (m) {
+                tweetText = m[1]
+                  .replace(/<a[^>]*>(.*?)<\/a>/g, '$1')
+                  .replace(/<br\s*\/?>/g, '\n')
+                  .replace(/<[^>]+>/g, '')
+                  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+                  .trim()
+              }
+            }
+            platformData = { author: data.author_name || '', tweetText, type: 'tweet' }
+          }
+        } catch {}
+
+        // Syndication API - gets metrics + media info
+        const statusMatch = url.match(/status\/(\d+)/)
+        if (statusMatch) {
+          try {
+            const synRes = await fetch(
+              `https://cdn.syndication.twimg.com/tweet-result?id=${statusMatch[1]}&token=0`,
+              { signal: AbortSignal.timeout(5000) }
+            )
+            if (synRes.ok) {
+              const s = await synRes.json()
+              if (s.text) {
+                platformData = platformData || {}
+                platformData.tweetText = s.text
+                platformData.author = s.user?.name || platformData?.author || ''
+                platformData.metrics = { likes: s.favorite_count, retweets: s.retweet_count, replies: s.reply_count }
+                if (s.mediaDetails?.length) {
+                  platformData.hasMedia = true
+                  platformData.mediaType = s.mediaDetails[0].type
+                }
+              }
+            }
+          } catch {}
+        }
       }
-    } catch {
-      // oEmbed failed - continue
+
+      // ── Spotify ──
+      else if (hostname.includes('spotify.com')) {
+        platformType = 'spotify'
+        const oRes = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
+        if (oRes.ok) {
+          platformData = await oRes.json()
+          if (pathname.includes('/track/')) platformData.spotifyType = 'track'
+          else if (pathname.includes('/album/')) platformData.spotifyType = 'album'
+          else if (pathname.includes('/playlist/')) platformData.spotifyType = 'playlist'
+          else if (pathname.includes('/artist/')) platformData.spotifyType = 'artist'
+        }
+      }
+
+      // ── YouTube ──
+      else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+        platformType = 'youtube'
+        const oRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`)
+        if (oRes.ok) platformData = await oRes.json()
+      }
+
+      // ── GitHub ──
+      else if (hostname === 'github.com') {
+        platformType = 'github'
+        const repoMatch = pathname.match(/^\/([^/]+)\/([^/]+)\/?$/)
+        if (repoMatch) {
+          const apiRes = await fetch(
+            `https://api.github.com/repos/${repoMatch[1]}/${repoMatch[2]}`,
+            { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'IngestIO' }, signal: AbortSignal.timeout(5000) }
+          )
+          if (apiRes.ok) {
+            const r = await apiRes.json()
+            platformData = {
+              name: r.full_name, description: r.description, stars: r.stargazers_count,
+              forks: r.forks_count, language: r.language, topics: r.topics,
+              lastPush: r.pushed_at, openIssues: r.open_issues_count, license: r.license?.spdx_id,
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Step 3: Build context
+    let ctx = [`URL: ${url}`, `Platform: ${platformType}`]
+    if (ogData.title) ctx.push(`Page title: ${ogData.title}`)
+    if (ogData.description) ctx.push(`OG description: ${ogData.description}`)
+    
+    if (platformData) {
+      if (platformType === 'twitter') {
+        if (platformData.tweetText) ctx.push(`TWEET TEXT: "${platformData.tweetText}"`)
+        if (platformData.author) ctx.push(`Author: ${platformData.author}`)
+        if (platformData.metrics) ctx.push(`Engagement: ${JSON.stringify(platformData.metrics)}`)
+        if (platformData.hasMedia) ctx.push(`Has media: ${platformData.mediaType}`)
+      } else if (platformType === 'github') {
+        ctx.push(`GitHub: ${JSON.stringify(platformData)}`)
+      } else {
+        ctx.push(`Platform data: ${JSON.stringify(platformData)}`)
+      }
+    }
+    if (intent) ctx.push(`User context: ${intent}`)
+
+    // Step 4: Platform-aware prompt
+    let extra = ''
+    if (platformType === 'twitter' && !platformData?.tweetText) {
+      extra = ' The tweet text could not be extracted. Search the web for this specific tweet URL to find what it says. Focus on the POST CONTENT, not the account.'
+    } else if (platformType === 'twitter' && platformData?.tweetText) {
+      extra = ' The actual tweet text has been provided. Analyze THIS SPECIFIC POST, not the account. Focus on what the tweet says, its topic, any claims or recommendations.'
     }
 
-    // Step 3: Build context for Claude
-    let contextParts = [`URL: ${url}`]
-    if (ogData.title) contextParts.push(`Page title: ${ogData.title}`)
-    if (ogData.description) contextParts.push(`Description: ${ogData.description}`)
-    if (oembedData) contextParts.push(`oEmbed data: ${JSON.stringify(oembedData)}`)
-    if (intent) contextParts.push(`User context: ${intent}`)
+    const sys = `You analyze URLs for INGEST.IO. Use web_search to find additional details.${extra} Return ONLY valid JSON: {"title":"str","sub":"str","type":"TOOL|ARTICLE|VIDEO|SOCIAL|GITHUB|OTHER","summary":"str","details":["str"],"pros":["str"],"cons":["str"],"bestFor":["str"],"tags":["str"],"category":"str","score":50,"longevity":"3-6mo|6-12mo|12mo+"}`
 
-    const systemPrompt = `You analyze URLs for INGEST.IO. Use web_search to find additional details about this URL. Return ONLY valid JSON: {"title":"str","sub":"str","type":"TOOL|ARTICLE|VIDEO|SOCIAL|GITHUB|OTHER","summary":"str","details":["str"],"pros":["str"],"cons":["str"],"bestFor":["str"],"tags":["str"],"category":"str","score":50,"longevity":"3-6mo|6-12mo|12mo+"}`
-
-    // Step 4: Call Claude with web search
+    // Step 5: Claude
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4096,
-        system: systemPrompt,
+        system: sys,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: `Analyze this URL. Here is pre-fetched context:\n${contextParts.join('\n')}\n\nSearch the web for more details and return JSON.` }],
+        messages: [{ role: 'user', content: `Analyze this URL:\n${ctx.join('\n')}\n\nSearch the web for more details and return JSON.` }],
       }),
     })
 
     const claudeData = await claudeRes.json()
-
-    // Extract text from response
     let allText = ''
     for (const block of (claudeData.content || [])) {
       if (block.type === 'text' && block.text) allText += block.text
     }
 
-    // Parse JSON from response
+    // Parse JSON
     let parsed: any = null
     try {
-      const jsonMatch = allText.match(/\{[\s\S]*\}/)
-      if (jsonMatch) parsed = JSON.parse(jsonMatch[0])
+      const jm = allText.match(/\{[\s\S]*\}/)
+      if (jm) parsed = JSON.parse(jm[0])
     } catch {
       try {
-        const clean = allText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-        parsed = JSON.parse(clean)
+        parsed = JSON.parse(allText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim())
       } catch {
-        // Use OG data as fallback
-        const host = new URL(url).hostname.replace('www.', '')
         parsed = {
-          title: oembedData?.title || ogData.title || host,
+          title: platformData?.title || platformData?.author || ogData.title || hostname,
           sub: ogData.description?.substring(0, 80) || 'Analyzed',
           type: 'OTHER',
-          summary: ogData.description || allText.substring(0, 300) || 'Saved for reference.',
+          summary: platformData?.tweetText || ogData.description || allText.substring(0, 300) || 'Saved for reference.',
           details: ['Auto-analysis returned non-structured data'],
-          pros: ['Link saved'],
-          cons: ['May need manual review'],
-          bestFor: ['Reference'],
-          tags: ['new'],
-          category: 'Other',
-          score: 50,
-          longevity: '6-12mo',
+          pros: ['Link saved'], cons: ['May need manual review'],
+          bestFor: ['Reference'], tags: ['new'], category: 'Other', score: 50, longevity: '6-12mo',
         }
       }
     }
 
-    // Enrich with oEmbed data if available
-    if (oembedData && parsed) {
-      if (!parsed.title || parsed.title === new URL(url).hostname) {
-        parsed.title = oembedData.title || parsed.title
+    // Enrich
+    if (platformData && parsed) {
+      if (platformType === 'twitter' && platformData.author && !parsed.tags?.includes(platformData.author)) {
+        parsed.tags = [...(parsed.tags || []), platformData.author]
       }
-      if (oembedData.author_name && !parsed.tags?.includes(oembedData.author_name)) {
-        parsed.tags = [...(parsed.tags || []), oembedData.author_name]
+      if (platformType === 'github' && platformData.stars) {
+        parsed.details = [...(parsed.details || []), `${platformData.stars.toLocaleString()} stars`, platformData.language || 'Unknown']
+      }
+      if (platformData?.title && (!parsed.title || parsed.title === hostname)) parsed.title = platformData.title
+      if (platformData?.author_name && !parsed.tags?.includes(platformData.author_name)) {
+        parsed.tags = [...(parsed.tags || []), platformData.author_name]
       }
     }
 
-    // Strip cite tags
+    // Clean
     if (parsed.summary) parsed.summary = parsed.summary.replace(/<cite[^>]*>/g, '').replace(/<\/cite>/g, '')
     if (parsed.details) parsed.details = parsed.details.map((d: string) => d.replace(/<cite[^>]*>/g, '').replace(/<\/cite>/g, ''))
 
     return NextResponse.json({ success: true, data: parsed })
-
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Ingestion failed' }, { status: 500 })
   }
