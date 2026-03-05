@@ -12,26 +12,145 @@ function sBg(s){return s>=75?"rgba(34,197,94,.08)":s>=50?"rgba(245,158,11,.08)":
 function ago(d){var dy=Math.floor((Date.now()-new Date(d).getTime())/864e5);return dy<1?"today":dy<7?dy+"d":dy<30?Math.floor(dy/7)+"w":dy<365?Math.floor(dy/30)+"mo":Math.floor(dy/365)+"y";}
 function stripCite(s){return s?s.replace(/<cite[^>]*>/g,"").replace(/<\/cite>/g,""):s;}
 
+/* ── Theme ── */
+function T(dark){return dark?{
+  bg:"#080b14",bgGrad:"linear-gradient(135deg,#080b14 0%,#0d1424 25%,#0a0f1e 50%,#0c1220 75%,#090e18 100%)",
+  surface:"rgba(255,255,255,.04)",surfaceHover:"rgba(255,255,255,.07)",
+  card:"rgba(255,255,255,.06)",cardBorder:"rgba(255,255,255,.08)",
+  text:"#e2e8f0",textSub:"#64748b",textMuted:"#475569",
+  headerBg:"rgba(8,11,20,.85)",headerBorder:"rgba(255,255,255,.04)",
+  inputBg:"rgba(255,255,255,.05)",inputBorder:"rgba(255,255,255,.08)",
+  toolbarBg:"rgba(15,20,35,.85)",toolbarBorder:"rgba(255,255,255,.06)",
+  drawerBg:"#0f1525",drawerBorder:"rgba(255,255,255,.06)",
+  modalBg:"rgba(0,0,0,.5)",modalCard:"rgba(15,20,35,.95)",
+  blob1:"rgba(99,102,241,.12)",blob2:"rgba(6,182,212,.08)",blob3:"rgba(139,92,246,.1)",blob4:"rgba(245,158,11,.06)",
+  catGlass:"rgba(255,255,255,.05)",selBg:"rgba(99,102,241,.06)"
+}:{
+  bg:"#f8fafc",bgGrad:"linear-gradient(135deg,#e0e7ff 0%,#cffafe 25%,#ede9fe 50%,#e0f2fe 75%,#fce7f3 100%)",
+  surface:"rgba(255,255,255,.5)",surfaceHover:"rgba(255,255,255,.8)",
+  card:"rgba(255,255,255,.75)",cardBorder:"rgba(255,255,255,.5)",
+  text:"#1e1e2e",textSub:"#a3b1c6",textMuted:"#64748b",
+  headerBg:"rgba(255,255,255,.5)",headerBorder:"rgba(0,0,0,.03)",
+  inputBg:"rgba(255,255,255,.6)",inputBorder:"rgba(0,0,0,.04)",
+  toolbarBg:"rgba(255,255,255,.7)",toolbarBorder:"rgba(255,255,255,.5)",
+  drawerBg:"#fff",drawerBorder:"rgba(0,0,0,.05)",
+  modalBg:"rgba(30,30,46,.08)",modalCard:"rgba(255,255,255,.85)",
+  blob1:"rgba(99,102,241,.08)",blob2:"rgba(6,182,212,.06)",blob3:"rgba(139,92,246,.06)",blob4:"rgba(245,158,11,.05)",
+  catGlass:"rgba(255,255,255,.65)",selBg:"rgba(99,102,241,.06)"
+};}
+
+/* ── Score Breakdown ── */
+function ScoreBreakdown(p){
+  var s=p.card;var content=Math.min(100,Math.max(20,(s.details||[]).length*12+(s.pros||[]).length*10+(s.cons||[]).length*8));
+  var fresh=100;var dy=Math.floor((Date.now()-new Date(s.date).getTime())/864e5);if(dy>180)fresh=30;else if(dy>90)fresh=50;else if(dy>30)fresh=75;
+  var relevance=s.intent?80:50;if(s.pinned)relevance=Math.min(100,relevance+15);
+  var ecosystem=s.score||50;
+  var t=p.theme;
+  function Bar(x){return <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+    <span style={{fontSize:9,color:t.textMuted,width:55,textAlign:"right"}}>{x.label}</span>
+    <div style={{flex:1,height:4,borderRadius:2,background:t.inputBg}}>
+      <div style={{width:x.val+"%",height:"100%",borderRadius:2,background:x.val>=75?"#22c55e":x.val>=50?"#f59e0b":"#ef4444",transition:"width .5s"}}></div>
+    </div>
+    <span style={{fontSize:9,color:t.textSub,width:20}}>{x.val}</span>
+  </div>;}
+  return <div style={{padding:"8px 0"}}>
+    <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"#6366f1",marginBottom:6}}>RELEVANCY BREAKDOWN</div>
+    <Bar label="Content" val={content}/>
+    <Bar label="Freshness" val={fresh}/>
+    <Bar label="Relevance" val={relevance}/>
+    <Bar label="Ecosystem" val={ecosystem}/>
+  </div>;
+}
+
+/* ── Minimap ── */
+function Minimap(p){
+  var w=140,h=90,pad=8;if(!p.cards||p.cards.length===0)return null;
+  var xs=p.cards.map(function(c){return c.cx;}),ys=p.cards.map(function(c){return c.cy;});
+  var minX=Math.min.apply(null,xs)-100,maxX=Math.max.apply(null,xs)+200,minY=Math.min.apply(null,ys)-100,maxY=Math.max.apply(null,ys)+200;
+  var scaleX=(w-pad*2)/(maxX-minX||1),scaleY=(h-pad*2)/(maxY-minY||1),sc=Math.min(scaleX,scaleY);
+  var t=p.theme;
+  return <div style={{position:"absolute",bottom:50,right:12,width:w,height:h,background:t.toolbarBg,backdropFilter:"blur(12px)",borderRadius:10,border:"1px solid "+t.toolbarBorder,zIndex:40,overflow:"hidden",opacity:.85}}>
+    {p.cards.map(function(c){var ts2=TS[c.type]||TS.OTHER;return <div key={c.id} style={{position:"absolute",left:pad+(c.cx-minX)*sc,top:pad+(c.cy-minY)*sc,width:4,height:4,borderRadius:"50%",background:ts2.color}}></div>;})}
+    {Object.entries(p.cats).map(function([nm,cf]){return <div key={nm} style={{position:"absolute",left:pad+(cf.x-minX)*sc-1,top:pad+(cf.y-minY)*sc-1,width:6,height:6,borderRadius:"50%",border:"1px solid "+cf.color,opacity:.5}}></div>;})}
+  </div>;
+}
+
+/* ── Settings Panel ── */
+function SettingsPanel(p){
+  var t=p.theme;
+  return <div>
+    <div onClick={p.onClose} style={{position:"fixed",inset:0,zIndex:100,background:t.modalBg,backdropFilter:"blur(2px)"}}></div>
+    <div style={{position:"fixed",top:0,right:0,zIndex:101,width:"min(340px,100vw)",height:"100vh",background:t.drawerBg,borderLeft:"1px solid "+t.drawerBorder,boxShadow:"-8px 0 40px rgba(0,0,0,.1)",padding:"24px 20px",fontFamily:"'Sora',sans-serif",animation:"su .3s cubic-bezier(.16,1,.3,1)",overflowY:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+        <h2 style={{fontSize:16,fontWeight:800,color:t.text}}>Settings</h2>
+        <button onClick={p.onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:t.textSub}}>{"\u2715"}</button>
+      </div>
+      {/* Appearance */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:t.textMuted,marginBottom:8}}>APPEARANCE</div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={function(){p.onTheme(false);}} style={{flex:1,padding:"10px",borderRadius:12,border:p.dark?"1px solid "+t.inputBorder:"2px solid #6366f1",background:p.dark?t.inputBg:"rgba(99,102,241,.06)",cursor:"pointer",fontFamily:"'Sora',sans-serif"}}>
+            <div style={{fontSize:18,marginBottom:4}}>{"\u2600\uFE0F"}</div>
+            <div style={{fontSize:10,fontWeight:600,color:p.dark?t.textSub:"#6366f1"}}>Light</div>
+          </button>
+          <button onClick={function(){p.onTheme(true);}} style={{flex:1,padding:"10px",borderRadius:12,border:p.dark?"2px solid #6366f1":"1px solid "+t.inputBorder,background:p.dark?"rgba(99,102,241,.08)":t.inputBg,cursor:"pointer",fontFamily:"'Sora',sans-serif"}}>
+            <div style={{fontSize:18,marginBottom:4}}>{"\uD83C\uDF19"}</div>
+            <div style={{fontSize:10,fontWeight:600,color:p.dark?"#6366f1":t.textSub}}>Night Sky</div>
+          </button>
+        </div>
+      </div>
+      {/* Default View */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:t.textMuted,marginBottom:8}}>DEFAULT VIEW</div>
+        <div style={{display:"flex",gap:4}}>
+          {["canvas","list","board"].map(function(v){return <button key={v} onClick={function(){p.onDefaultView(v);}} style={{flex:1,padding:"7px",borderRadius:8,border:"1px solid "+(p.defaultView===v?"#6366f1":t.inputBorder),background:p.defaultView===v?"rgba(99,102,241,.06)":t.inputBg,color:p.defaultView===v?"#6366f1":t.textSub,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif",textTransform:"capitalize"}}>{v}</button>;})}
+        </div>
+      </div>
+      {/* Connected Accounts */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:t.textMuted,marginBottom:8}}>CONNECTED ACCOUNTS</div>
+        {[{name:"X / Twitter",icon:"\uD835\uDD4F",connected:false},{name:"Spotify",icon:"\uD83C\uDFB5",connected:false},{name:"GitHub",icon:"\u2B21",connected:false}].map(function(acc){return <div key={acc.name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 10px",borderRadius:10,background:t.inputBg,border:"1px solid "+t.inputBorder,marginBottom:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:14}}>{acc.icon}</span>
+            <span style={{fontSize:11,fontWeight:600,color:t.text}}>{acc.name}</span>
+          </div>
+          <button style={{padding:"4px 12px",borderRadius:6,border:"1px solid "+t.inputBorder,background:"none",fontSize:9,fontWeight:600,color:t.textSub,cursor:"pointer",fontFamily:"'Sora',sans-serif",opacity:.5}}>Coming soon</button>
+        </div>;})}
+      </div>
+      {/* Account */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:t.textMuted,marginBottom:8}}>ACCOUNT</div>
+        <div style={{padding:"10px 12px",borderRadius:10,background:t.inputBg,border:"1px solid "+t.inputBorder}}>
+          <div style={{fontSize:11,fontWeight:600,color:t.text}}>{p.user}</div>
+          <div style={{fontSize:9,color:t.textSub,marginTop:2}}>Free plan</div>
+        </div>
+        <button onClick={p.onSignOut} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:8,border:"1px solid rgba(239,68,68,.15)",background:"rgba(239,68,68,.04)",color:"#ef4444",fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif"}}>Sign Out</button>
+      </div>
+    </div>
+  </div>;
+}
+
 var INIT_CARDS=[
 {id:"1",url:"https://cursor.com",title:"Cursor",sub:"AI Code Editor",type:"TOOL",domain:"cursor.com",date:"2026-02-18",summary:"AI-powered code editor on VS Code with tab completion and multi-file context.",details:["VS Code fork with AI","Cmd+K editing","Claude + GPT-4 support"],pros:["Familiar UI","Multi-file context","Fast completion"],cons:["$20/mo","Resource-heavy"],bestFor:["Pro devs","VS Code teams"],tags:["AI","code editor"],cat:"Developer Tools",score:91,longevity:"12mo+",stale:[],intent:"Compare editors",notes:"Evaluate vs Windsurf",pinned:true,ai:null,cx:180,cy:190,status:"complete"},
 {id:"6",url:"https://v0.dev",title:"v0",sub:"AI UI Generation",type:"TOOL",domain:"v0.dev",date:"2026-03-01",summary:"Text to production React components with shadcn/ui.",details:["Text-to-UI React","shadcn/ui","Iterative refinement"],pros:["Usable output","Free tier"],cons:["React only"],bestFor:["Prototyping","MVPs"],tags:["AI","UI gen"],cat:"Developer Tools",score:88,longevity:"12mo+",stale:[],intent:"For Sequence Studios",notes:"",pinned:false,ai:null,cx:220,cy:430,status:"complete"},
 {id:"5",url:"https://devin.ai",title:"Devin",sub:"AI Software Engineer",type:"TOOL",domain:"devin.ai",date:"2025-08-15",summary:"Autonomous AI engineer. Impressive demos, debated results.",details:["Autonomous engineer","End-to-end tasks","Below demo quality"],pros:["Good demos"],cons:["Below demos","Expensive"],bestFor:["Enterprise R&D"],tags:["AI","autonomous"],cat:"Developer Tools",score:45,longevity:"3-6mo",stale:["7mo old","3 newer tools"],intent:"",notes:"Was hot 7mo ago",pinned:false,ai:{text:"Cursor + Claude Code cover most use cases cheaper",type:"outdated"},cx:530,cy:200,status:"complete"},
 {id:"2",url:"https://github.com/langchain-ai/langchain",title:"LangChain",sub:"LLM Framework",type:"GITHUB",domain:"github.com",date:"2026-01-05",summary:"LLM framework: chains, agents, RAG. Massive but over-abstracted.",details:["Chain LLM calls","Huge integrations","LangSmith"],pros:["Big ecosystem","Good docs"],cons:["Over-abstraction","Breaking changes"],bestFor:["Rapid prototyping"],tags:["LLM","agents","RAG"],cat:"AI Frameworks",score:72,longevity:"6-12mo",stale:["Shifting to lighter options"],intent:"Evaluate Q2",notes:"",pinned:false,ai:{text:"CrewAI gaining traction",type:"alt"},cx:950,cy:180,status:"complete"},
 {id:"8",url:"https://github.com/crewai/crewai",title:"CrewAI",sub:"Multi-agent Orchestration",type:"GITHUB",domain:"github.com",date:"2026-02-20",summary:"Multi-agent framework. Simple API, role-based agents.",details:["Role-based agents","Task delegation","Simple API"],pros:["Simpler than LangChain"],cons:["Smaller ecosystem"],bestFor:["Multi-agent systems"],tags:["agents","orchestration"],cat:"AI Frameworks",score:85,longevity:"6-12mo",stale:[],intent:"LangChain alt?",notes:"",pinned:false,ai:null,cx:1250,cy:200,status:"complete"},
-{id:"3",url:"https://x.com/karpathy",title:"Karpathy on Agents",sub:"Agentic Workflows",type:"SOCIAL",domain:"x.com",date:"2026-02-25",summary:"Next AI wave: agentic workflows with tool use, not chat.",details:["Chat is UI limitation","Agents converge in 12mo"],pros:["Authoritative"],cons:["Single perspective"],bestFor:["AI strategy"],tags:["agents","strategy"],cat:"AI Strategy",score:84,longevity:"3-6mo",stale:[],intent:"Agent context",notes:"",pinned:false,ai:null,cx:700,cy:650,status:"complete",consensus:{sentiment:"Positive",agree:["Tool use underexplored"],disagree:["Overhyped"]}},
+{id:"3",url:"https://x.com/karpathy",title:"Karpathy on Agents",sub:"Agentic Workflows",type:"SOCIAL",domain:"x.com",date:"2026-02-25",summary:"Next AI wave: agentic workflows with tool use, not chat.",details:["Chat is UI limitation","Agents converge in 12mo"],pros:["Authoritative"],cons:["Single perspective"],bestFor:["AI strategy"],tags:["agents","strategy"],cat:"AI Strategy",score:84,longevity:"3-6mo",stale:[],intent:"Agent context",notes:"",pinned:false,ai:null,cx:700,cy:650,status:"complete"},
 {id:"4",url:"https://youtube.com/watch?v=ex",title:"Production Agents",sub:"Claude + TS Tutorial",type:"VIDEO",domain:"youtube.com",date:"2026-02-10",summary:"45-min tutorial: production AI agent with tool calling.",details:["Full stack","Error recovery","Cost optimization"],pros:["Practical"],cons:["TS only"],bestFor:["First agent builders"],tags:["agents","tutorial"],cat:"Tutorials",score:78,longevity:"3-6mo",stale:["API may change"],intent:"Learning",notes:"",pinned:false,ai:null,cx:230,cy:690,status:"complete"}
 ];
 var INIT_CONNS=[{id:"c1",from:"1",to:"5"},{id:"c2",from:"1",to:"6"},{id:"c3",from:"2",to:"8"},{id:"c4",from:"3",to:"4"}];
 var INIT_NOTES=[{id:"n1",text:"Revisit agent stack Q2",x:620,y:500,color:"#6366f1"},{id:"n2",text:"Ask Brad re Cursor license",x:80,y:380,color:"#64748b"}];
 
-/* ── CatHub component with rename ── */
+
+/* ── CatHub ── */
 function CatHub(p){
-  var[editing,setE]=useState(false);var[editName,setEN]=useState(p.name);
+  var[editing,setE]=useState(false);var[editName,setEN]=useState(p.name);var t=p.theme;
   if(p.zoom<0.25)return null;
-  function doRename(){var t=editName.trim();setE(false);if(t&&t!==p.name)p.onRename(p.name,t);else setEN(p.name);}
+  function doRename(){var v=editName.trim();setE(false);if(v&&v!==p.name)p.onRename(p.name,v);else setEN(p.name);}
   return <div>
     <div style={{position:"absolute",left:p.conf.x-140,top:p.conf.y-140,width:280,height:280,borderRadius:"50%",background:"radial-gradient(circle,"+p.conf.color+"20 0%,"+p.conf.color+"08 40%,transparent 70%)",filter:"blur(30px)",pointerEvents:"none"}}></div>
-    <div onMouseDown={function(e){if(!editing){e.stopPropagation();p.onDragStart(e,p.name,"cat");}}} style={{position:"absolute",left:p.conf.x,top:p.conf.y,transform:"translate(-50%,-50%)",zIndex:3,textAlign:"center",cursor:editing?"text":"grab",padding:"8px 16px",borderRadius:12,background:"rgba(255,255,255,.65)",backdropFilter:"blur(8px)",border:"1px solid rgba(0,0,0,.04)"}}>
+    <div onMouseDown={function(e){if(!editing){e.stopPropagation();p.onDragStart(e,p.name,"cat");}}} style={{position:"absolute",left:p.conf.x,top:p.conf.y,transform:"translate(-50%,-50%)",zIndex:3,textAlign:"center",cursor:editing?"text":"grab",padding:"8px 16px",borderRadius:12,background:t.catGlass,backdropFilter:"blur(8px)",border:"1px solid "+t.cardBorder}}>
       {editing?<input value={editName} onChange={function(e){setEN(e.target.value);}} onBlur={doRename} onKeyDown={function(e){if(e.key==="Enter")doRename();if(e.key==="Escape"){setE(false);setEN(p.name);}}} onMouseDown={function(e){e.stopPropagation();}} autoFocus style={{fontSize:10,fontWeight:800,letterSpacing:2,textTransform:"uppercase",color:p.conf.color,fontFamily:"'Sora',sans-serif",border:"none",borderBottom:"2px solid "+p.conf.color,outline:"none",background:"transparent",textAlign:"center",width:120}}/>
       :<div onDoubleClick={function(e){e.stopPropagation();setE(true);setEN(p.name);}} style={{fontSize:p.zoom>0.5?10:8,fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",color:p.conf.color,fontFamily:"'Sora',sans-serif"}}>{p.name}</div>}
       {p.zoom>0.5&&!editing&&<div style={{fontSize:9,color:p.conf.color,opacity:.4,marginTop:1}}>{p.count}</div>}
@@ -42,82 +161,80 @@ function CatHub(p){
 
 /* ── Drawer ── */
 function Drawer(p){
-  var card=p.card,onClose=p.onClose,onUpdate=p.onUpdate,onDelete=p.onDelete;
+  var card=p.card,onClose=p.onClose,onUpdate=p.onUpdate,onDelete=p.onDelete,t=p.theme;
   var[em,setEm]=useState(false);var[eT,sT]=useState(card.title);var[eN,sN]=useState(card.notes);
   var[chatMsg,setCM]=useState("");var[newTag,setNT]=useState("");var[showNT,setSNT]=useState(false);
   var[chatH,setCH]=useState([]);var[chatL,setCL]=useState(false);
   var[showPaste,setSP]=useState(false);var[pasteC,setPC]=useState("");
+  var[showScore,setShowScore]=useState(false);
   var chatEnd=useRef(null);var ts=TS[card.type]||TS.OTHER;var sc=sC(card.score);
   function save(){onUpdate(card.id,{title:eT,notes:eN});setEm(false);}
   function addTag(){if(newTag.trim()){var nt=card.tags.concat([newTag.trim()]);onUpdate(card.id,{tags:nt});setNT("");setSNT(false);}}
   var askAI=async function(){
     if(!chatMsg.trim()||chatL)return;var um=chatMsg.trim();setCM("");setCH(function(p2){return p2.concat([{role:"user",text:um}]);});setCL(true);
     var ctx="Tool: "+card.title+"\nType: "+card.type+" | Score: "+card.score+"\nURL: "+card.url+"\nSummary: "+card.summary+"\nPros: "+card.pros.join("; ")+"\nCons: "+card.cons.join("; ")+"\nTags: "+card.tags.join(", ");
-    var msgs=chatH.map(function(m){return{role:m.role==="user"?"user":"assistant",content:m.text};}).concat([{role:"user",content:um}]);
     try{var r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:um,cardContext:ctx,history:chatH})});
-      var d=await r.json();var t=stripCite(d.text||"No response.");
-      setCH(function(p2){return p2.concat([{role:"assistant",text:t}]);});
+      var d=await r.json();var tx=stripCite(d.text||"No response.");
+      setCH(function(p2){return p2.concat([{role:"assistant",text:tx}]);});
     }catch(e){setCH(function(p2){return p2.concat([{role:"assistant",text:"Error. Try again."}]);});}setCL(false);
   };
   useEffect(function(){if(chatEnd.current)chatEnd.current.scrollIntoView({behavior:"smooth"});},[chatH,chatL]);
-  if(card.status==="ingesting")return <div><div onClick={onClose} style={{position:"fixed",inset:0,zIndex:100,background:"rgba(0,0,0,.06)",backdropFilter:"blur(2px)"}}></div><div style={{position:"fixed",top:0,right:0,zIndex:101,width:"min(440px,100vw)",height:"100vh",background:"#fff",borderLeft:"1px solid rgba(0,0,0,.05)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-    <div style={{textAlign:"center"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:60,height:60,objectFit:"cover",borderRadius:"50%",marginBottom:12}}></video><div style={{fontSize:14,fontWeight:700,marginBottom:4}}>Ingesting...</div><div style={{fontSize:12,color:"#a3b1c6"}}>{card.domain}</div></div></div></div>;
+  if(card.status==="ingesting")return <div><div onClick={onClose} style={{position:"fixed",inset:0,zIndex:100,background:t.modalBg,backdropFilter:"blur(2px)"}}></div><div style={{position:"fixed",top:0,right:0,zIndex:101,width:"min(440px,100vw)",height:"100vh",background:t.drawerBg,borderLeft:"1px solid "+t.drawerBorder,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{textAlign:"center"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:60,height:60,objectFit:"cover",borderRadius:"50%",marginBottom:12}}></video><div style={{fontSize:14,fontWeight:700,marginBottom:4,color:t.text}}>Ingesting...</div><div style={{fontSize:12,color:t.textSub}}>{card.domain}</div></div></div></div>;
   return <div>
-    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:100,background:"rgba(0,0,0,.06)",backdropFilter:"blur(2px)"}}></div>
-    <div style={{position:"fixed",top:0,right:0,zIndex:101,width:"min(440px,100vw)",height:"100vh",background:"#fff",borderLeft:"1px solid rgba(0,0,0,.05)",boxShadow:"-8px 0 40px rgba(0,0,0,.04)",overflow:"hidden",display:"flex",flexDirection:"column",animation:"su .3s cubic-bezier(.16,1,.3,1)",fontFamily:"'Sora',sans-serif"}}>
-      <div style={{padding:"16px 18px 12px",borderBottom:"1px solid rgba(0,0,0,.05)",flexShrink:0}}>
+    <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:100,background:t.modalBg,backdropFilter:"blur(2px)"}}></div>
+    <div style={{position:"fixed",top:0,right:0,zIndex:101,width:"min(440px,100vw)",height:"100vh",background:t.drawerBg,borderLeft:"1px solid "+t.drawerBorder,boxShadow:"-8px 0 40px rgba(0,0,0,.08)",overflow:"hidden",display:"flex",flexDirection:"column",animation:"su .3s cubic-bezier(.16,1,.3,1)",fontFamily:"'Sora',sans-serif"}}>
+      <div style={{padding:"16px 18px 12px",borderBottom:"1px solid "+t.drawerBorder,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between"}}>
           <div style={{flex:1,paddingRight:50}}>
             <div style={{display:"flex",gap:5,marginBottom:6}}>
               <span style={{padding:"3px 9px",borderRadius:20,fontSize:10,fontWeight:600,background:ts.color+"14",color:ts.color}}>{ts.icon} {ts.label}</span>
-              <span style={{padding:"3px 8px",borderRadius:20,fontSize:10,fontWeight:700,background:sBg(card.score),color:sc}}>{card.score}</span>
+              <button onClick={function(){setShowScore(!showScore);}} style={{padding:"3px 8px",borderRadius:20,fontSize:10,fontWeight:700,background:sBg(card.score),color:sc,border:"none",cursor:"pointer"}}>{card.score} {showScore?"\u25B2":"\u25BC"}</button>
             </div>
-            {em?<input value={eT} onChange={function(e){sT(e.target.value);}} style={{fontSize:17,fontWeight:700,border:"none",borderBottom:"2px solid #6366f1",outline:"none",width:"100%",fontFamily:"'Sora',sans-serif"}}/>:<h2 style={{fontSize:17,fontWeight:700,margin:0}}>{card.title}</h2>}
-            <p style={{fontSize:11,color:"#a3b1c6",marginTop:2}}>{card.sub}</p>
-            <div style={{fontSize:10,color:"#a3b1c6",marginTop:4}}>{card.domain} · {ago(card.date)}</div>
+            {em?<input value={eT} onChange={function(e){sT(e.target.value);}} style={{fontSize:17,fontWeight:700,border:"none",borderBottom:"2px solid #6366f1",outline:"none",width:"100%",fontFamily:"'Sora',sans-serif",background:"transparent",color:t.text}}/>:<h2 style={{fontSize:17,fontWeight:700,margin:0,color:t.text}}>{card.title}</h2>}
+            <p style={{fontSize:11,color:t.textSub,marginTop:2}}>{card.sub}</p>
+            <div style={{fontSize:10,color:t.textSub,marginTop:4}}>{card.domain} · {ago(card.date)}</div>
           </div>
           <div style={{display:"flex",gap:3}}>
-            <button onClick={function(){em?save():setEm(true);}} style={{width:26,height:26,borderRadius:7,border:"none",background:em?"#6366f1":"rgba(0,0,0,.03)",cursor:"pointer",fontSize:10,color:em?"#fff":"#a3b1c6",display:"flex",alignItems:"center",justifyContent:"center"}}>{em?"\u2713":"\u270E"}</button>
+            <button onClick={function(){em?save():setEm(true);}} style={{width:26,height:26,borderRadius:7,border:"none",background:em?"#6366f1":t.surface,cursor:"pointer",fontSize:10,color:em?"#fff":t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}}>{em?"\u2713":"\u270E"}</button>
             <button onClick={function(){onDelete(card.id);onClose();}} style={{width:26,height:26,borderRadius:7,border:"none",background:"rgba(239,68,68,.05)",cursor:"pointer",fontSize:9,color:"#ef4444",display:"flex",alignItems:"center",justifyContent:"center"}}>{"\uD83D\uDDD1"}</button>
-            <button onClick={onClose} style={{width:26,height:26,borderRadius:7,border:"none",background:"rgba(0,0,0,.03)",cursor:"pointer",fontSize:12,color:"#a3b1c6",display:"flex",alignItems:"center",justifyContent:"center"}}>{"\u2715"}</button>
+            <button onClick={onClose} style={{width:26,height:26,borderRadius:7,border:"none",background:t.surface,cursor:"pointer",fontSize:12,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}}>{"\u2715"}</button>
           </div>
         </div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"6px 18px 24px"}}>
+        {showScore&&<ScoreBreakdown card={card} theme={t}/>}
         {card.ai&&<div style={{margin:"6px 0 10px",padding:"8px 12px",borderRadius:12,background:card.ai.type==="outdated"?"rgba(239,68,68,.04)":"rgba(99,102,241,.04)",border:"1px solid "+(card.ai.type==="outdated"?"rgba(239,68,68,.08)":"rgba(99,102,241,.08)")}}><div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:card.ai.type==="outdated"?"#ef4444":"#6366f1"}}>{card.ai.type==="outdated"?"\u26A0 Notice":"\uD83D\uDCA1 Suggestion"}</div><p style={{fontSize:12,margin:0,lineHeight:1.5,color:card.ai.type==="outdated"?"#b91c1c":"#4338ca"}}>{card.ai.text}</p></div>}
-        <p style={{fontSize:13,lineHeight:1.65,color:"#64748b",margin:"8px 0"}}>{stripCite(card.summary)}</p>
-        {card.details&&card.details.length>0&&<div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>{card.details.map(function(x,i){return <div key={i} style={{display:"flex",gap:8,fontSize:12,lineHeight:1.6,color:"#64748b"}}><span style={{width:4,height:4,borderRadius:"50%",background:"#64748b",opacity:.3,flexShrink:0,marginTop:8}}></span><span>{stripCite(x)}</span></div>;})}</div>}
-        {card.intent&&<div style={{padding:"7px 10px",borderRadius:10,background:"rgba(99,102,241,.04)",border:"1px solid rgba(99,102,241,.06)",marginBottom:10}}><p style={{fontSize:11,color:"#6366f1",fontStyle:"italic",margin:0}}>{card.intent}</p></div>}
+        <p style={{fontSize:13,lineHeight:1.65,color:t.textMuted,margin:"8px 0"}}>{stripCite(card.summary)}</p>
+        {card.details&&card.details.length>0&&<div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>{card.details.map(function(x,i){return <div key={i} style={{display:"flex",gap:8,fontSize:12,lineHeight:1.6,color:t.textMuted}}><span style={{width:4,height:4,borderRadius:"50%",background:t.textMuted,opacity:.3,flexShrink:0,marginTop:8}}></span><span>{stripCite(x)}</span></div>;})}</div>}
         {card.pros&&card.pros.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
           <div style={{padding:8,borderRadius:10,background:"rgba(34,197,94,.04)"}}><div style={{fontSize:9,fontWeight:700,color:"#22c55e",marginBottom:3}}>PROS</div>{card.pros.map(function(x,i){return <div key={i} style={{fontSize:11,color:"#22c55e",marginBottom:2}}>· {x}</div>;})}</div>
           <div style={{padding:8,borderRadius:10,background:"rgba(239,68,68,.03)"}}><div style={{fontSize:9,fontWeight:700,color:"#ef4444",marginBottom:3}}>CONS</div>{card.cons.map(function(x,i){return <div key={i} style={{fontSize:11,color:"#ef4444",marginBottom:2}}>· {x}</div>;})}</div>
         </div>}
         <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8,alignItems:"center"}}>
-          {card.tags.map(function(t,i){return <span key={i} style={{padding:"3px 10px",borderRadius:20,fontSize:10,background:"rgba(0,0,0,.03)",color:"#64748b"}}>{t}</span>;})}
+          {card.tags.map(function(tg,i){return <span key={i} style={{padding:"3px 10px",borderRadius:20,fontSize:10,background:t.surface,color:t.textMuted}}>{tg}</span>;})}
           {!em&&(showNT?<input value={newTag} onChange={function(e){setNT(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addTag();if(e.key==="Escape")setSNT(false);}} onBlur={function(){if(!newTag)setSNT(false);}} autoFocus placeholder="tag" style={{padding:"3px 8px",borderRadius:20,fontSize:10,border:"1.5px dashed rgba(99,102,241,.3)",outline:"none",width:70,color:"#6366f1",background:"rgba(99,102,241,.04)"}}/>
-          :<button onClick={function(){setSNT(true);}} style={{padding:"3px 8px",borderRadius:20,fontSize:10,border:"1.5px dashed rgba(0,0,0,.05)",background:"none",cursor:"pointer",color:"#a3b1c6"}}>+ add</button>)}
+          :<button onClick={function(){setSNT(true);}} style={{padding:"3px 8px",borderRadius:20,fontSize:10,border:"1.5px dashed "+t.cardBorder,background:"none",cursor:"pointer",color:t.textSub}}>+ add</button>)}
         </div>
-        {em?<textarea value={eN} onChange={function(e){sN(e.target.value);}} style={{width:"100%",minHeight:40,padding:"6px 8px",borderRadius:10,border:"1px solid rgba(0,0,0,.05)",fontSize:11,outline:"none",resize:"vertical",marginBottom:8}}/>:card.notes?<div style={{padding:"6px 10px",borderRadius:10,background:"rgba(0,0,0,.015)",fontSize:11,color:"#64748b",marginBottom:8}}>{card.notes}</div>:null}
-        <div style={{padding:"8px 10px",borderRadius:10,background:"rgba(0,0,0,.015)",marginBottom:8}}><a href={card.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:"#6366f1",wordBreak:"break-all",textDecoration:"none"}}>{card.url} {"\u2197"}</a></div>
-        {/* Paste content */}
+        {em?<textarea value={eN} onChange={function(e){sN(e.target.value);}} style={{width:"100%",minHeight:40,padding:"6px 8px",borderRadius:10,border:"1px solid "+t.inputBorder,fontSize:11,outline:"none",resize:"vertical",marginBottom:8,background:t.inputBg,color:t.text}}/>:card.notes?<div style={{padding:"6px 10px",borderRadius:10,background:t.surface,fontSize:11,color:t.textMuted,marginBottom:8}}>{card.notes}</div>:null}
+        <div style={{padding:"8px 10px",borderRadius:10,background:t.surface,marginBottom:8}}><a href={card.url} target="_blank" rel="noreferrer" style={{fontSize:10,color:"#6366f1",wordBreak:"break-all",textDecoration:"none"}}>{card.url} {"\u2197"}</a></div>
         {showPaste?<div style={{borderRadius:12,border:"1px solid rgba(245,158,11,.15)",background:"rgba(245,158,11,.03)",padding:12,marginBottom:8}}>
           <div style={{fontSize:9,fontWeight:700,color:"#f59e0b",letterSpacing:1,marginBottom:6}}>PASTE CONTENT</div>
-          <textarea value={pasteC} onChange={function(e){setPC(e.target.value);}} onMouseDown={function(e){e.stopPropagation();}} placeholder="Paste tweet text, transcript, article content..." style={{width:"100%",minHeight:70,padding:"8px",borderRadius:8,border:"1px solid rgba(0,0,0,.06)",fontSize:11,outline:"none",resize:"vertical",background:"#fff"}}></textarea>
+          <textarea value={pasteC} onChange={function(e){setPC(e.target.value);}} onMouseDown={function(e){e.stopPropagation();}} placeholder="Paste tweet text, transcript, article content..." style={{width:"100%",minHeight:70,padding:8,borderRadius:8,border:"1px solid "+t.inputBorder,fontSize:11,outline:"none",resize:"vertical",background:t.inputBg,color:t.text}}></textarea>
           <div style={{display:"flex",gap:6,marginTop:8}}>
-            <button onClick={function(){setSP(false);setPC("");}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"rgba(0,0,0,.03)",fontSize:10,cursor:"pointer",color:"#a3b1c6"}}>Cancel</button>
+            <button onClick={function(){setSP(false);setPC("");}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:t.surface,fontSize:10,cursor:"pointer",color:t.textSub}}>Cancel</button>
             <button onClick={async function(){if(!pasteC.trim())return;setCL(true);try{var r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:"Re-analyze this URL with the pasted content. Return ONLY JSON: {\"title\":\"str\",\"sub\":\"str\",\"summary\":\"str\",\"details\":[\"str\"],\"pros\":[\"str\"],\"cons\":[\"str\"],\"bestFor\":[\"str\"],\"tags\":[\"str\"],\"category\":\"str\",\"score\":50,\"longevity\":\"6-12mo\"}\n\nURL: "+card.url+"\nPrevious: "+card.summary+"\n\nPasted content:\n"+pasteC.trim(),cardContext:"Re-analysis request",history:[]})});var d=await r.json();var txt=d.text||"";var m=txt.match(/\{[\s\S]*\}/);if(m){var parsed=JSON.parse(m[0]);onUpdate(card.id,{title:parsed.title||card.title,sub:parsed.sub||card.sub,summary:parsed.summary||card.summary,details:parsed.details||card.details,pros:parsed.pros||card.pros,cons:parsed.cons||card.cons,tags:parsed.tags||card.tags,cat:parsed.category||card.cat,score:parsed.score||card.score});}}catch(e){}setCL(false);setSP(false);setPC("");
             }} style={{padding:"6px 14px",borderRadius:8,border:"none",background:"#6366f1",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>{chatL?"Analyzing...":"Re-analyze"}</button>
           </div>
         </div>
         :<button onClick={function(){setSP(true);}} style={{width:"100%",padding:"7px",borderRadius:10,border:"1px dashed rgba(245,158,11,.25)",background:"none",cursor:"pointer",fontSize:10,color:"#f59e0b",marginBottom:8}}>{"\uD83D\uDCCB"} Paste content for deeper analysis</button>}
-        {/* AI Chat */}
-        <div style={{borderRadius:12,background:"rgba(99,102,241,.04)",border:"1px solid rgba(99,102,241,.06)",overflow:"hidden"}}>
+        <div style={{borderRadius:12,background:t.selBg,border:"1px solid rgba(99,102,241,.06)",overflow:"hidden"}}>
           <div style={{padding:"8px 12px 4px"}}><div style={{fontSize:9,fontWeight:700,color:"#6366f1",letterSpacing:1}}>{"\u2726"} ASK AI</div></div>
-          {chatH.length>0&&<div style={{maxHeight:180,overflowY:"auto",padding:"0 12px"}}>{chatH.map(function(m,i){return <div key={i} style={{marginBottom:6,display:"flex",flexDirection:"column",alignItems:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"88%",padding:"6px 10px",borderRadius:m.role==="user"?"10px 10px 2px 10px":"10px 10px 10px 2px",background:m.role==="user"?"#6366f1":"#fff",color:m.role==="user"?"#fff":"#1e1e2e",fontSize:11,lineHeight:1.5,border:m.role==="user"?"none":"1px solid rgba(0,0,0,.05)",whiteSpace:"pre-wrap"}}>{m.text}</div></div>;})}
-            {chatL&&<div style={{marginBottom:6}}><div style={{padding:"8px",borderRadius:"10px 10px 10px 2px",background:"#fff",border:"1px solid rgba(0,0,0,.05)",fontSize:11,color:"#a3b1c6"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:20,height:20,borderRadius:"50%",verticalAlign:"middle",marginRight:6}}></video>Thinking...</div></div>}
+          {chatH.length>0&&<div style={{maxHeight:180,overflowY:"auto",padding:"0 12px"}}>{chatH.map(function(m,i){return <div key={i} style={{marginBottom:6,display:"flex",flexDirection:"column",alignItems:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"88%",padding:"6px 10px",borderRadius:m.role==="user"?"10px 10px 2px 10px":"10px 10px 10px 2px",background:m.role==="user"?"#6366f1":t.card,color:m.role==="user"?"#fff":t.text,fontSize:11,lineHeight:1.5,border:m.role==="user"?"none":"1px solid "+t.cardBorder,whiteSpace:"pre-wrap"}}>{m.text}</div></div>;})}
+            {chatL&&<div style={{marginBottom:6}}><div style={{padding:"8px",borderRadius:"10px 10px 10px 2px",background:t.card,border:"1px solid "+t.cardBorder,fontSize:11,color:t.textSub}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:20,height:20,borderRadius:"50%",verticalAlign:"middle",marginRight:6}}></video>Thinking...</div></div>}
             <div ref={chatEnd}></div></div>}
           <div style={{padding:"6px 12px 10px",display:"flex",gap:5}}>
-            <input value={chatMsg} onChange={function(e){setCM(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();askAI();}}} placeholder="Ask anything..." disabled={chatL} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid rgba(99,102,241,.1)",fontSize:11,outline:"none",background:"#fff",opacity:chatL?0.5:1}}/>
+            <input value={chatMsg} onChange={function(e){setCM(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();askAI();}}} placeholder="Ask anything..." disabled={chatL} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid rgba(99,102,241,.1)",fontSize:11,outline:"none",background:t.inputBg,color:t.text,opacity:chatL?0.5:1}}/>
             <button onClick={askAI} disabled={chatL||!chatMsg.trim()} style={{padding:"7px 14px",borderRadius:8,border:"none",background:chatL?"rgba(99,102,241,.3)":"#6366f1",color:"#fff",fontSize:10,fontWeight:700,cursor:chatL?"not-allowed":"pointer"}}>{chatL?"...":"Ask"}</button>
           </div>
         </div>
@@ -148,27 +265,34 @@ function LoginScreen(p){
       p.onLogin(email.trim());
     }catch(e){setErr("Auth error");setLoading(false);}
   };
-  return <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Sora',sans-serif",background:"linear-gradient(135deg,#e0e7ff 0%,#cffafe 30%,#ede9fe 60%,#e0f2fe 100%)",backgroundSize:"300% 300%",animation:"bg 12s ease infinite"}}>
-    <style>{String.raw`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}@keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@keyframes su{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
-    <div style={{width:360,background:"rgba(255,255,255,.75)",backdropFilter:"blur(20px)",borderRadius:24,padding:36,boxShadow:"0 24px 80px rgba(99,102,241,.08)",border:"1px solid rgba(255,255,255,.5)"}}>
+  return <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Sora',sans-serif",background:"linear-gradient(135deg,#080b14 0%,#0d1424 40%,#0a0f1e 70%,#0c1220 100%)",backgroundSize:"300% 300%",animation:"bg 12s ease infinite",position:"relative",overflow:"hidden"}}>
+    <style>{String.raw`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}@keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@keyframes su{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}`}</style>
+    {/* Stars */}
+    {Array.from({length:60}).map(function(_,i){return <div key={i} style={{position:"absolute",left:Math.random()*100+"%",top:Math.random()*100+"%",width:Math.random()*2+1,height:Math.random()*2+1,borderRadius:"50%",background:"#fff",opacity:Math.random()*.4+.1,animation:"twinkle "+(2+Math.random()*4)+"s ease infinite",animationDelay:Math.random()*3+"s"}}></div>;})}
+    {/* Nebula blobs */}
+    <div style={{position:"absolute",left:"10%",top:"20%",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,.15) 0%,transparent 60%)",filter:"blur(80px)"}}></div>
+    <div style={{position:"absolute",right:"15%",top:"40%",width:350,height:350,borderRadius:"50%",background:"radial-gradient(circle,rgba(6,182,212,.1) 0%,transparent 60%)",filter:"blur(80px)"}}></div>
+    <div style={{position:"absolute",left:"40%",bottom:"10%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle,rgba(139,92,246,.12) 0%,transparent 60%)",filter:"blur(80px)"}}></div>
+    <div style={{width:360,background:"rgba(255,255,255,.04)",backdropFilter:"blur(20px)",borderRadius:24,padding:36,boxShadow:"0 24px 80px rgba(0,0,0,.3)",border:"1px solid rgba(255,255,255,.06)",position:"relative",zIndex:1}}>
       <div style={{textAlign:"center",marginBottom:28}}>
-        <img src={LOGO_SRC} style={{height:48,marginBottom:12}} alt="ingest.io"/>
-        <h1 style={{fontSize:22,fontWeight:800,letterSpacing:-.5,marginBottom:4}}>ingest<span style={{color:"#6366f1"}}>.io</span></h1>
-        <p style={{fontSize:12,color:"#a3b1c6"}}>{mode==="login"?"Welcome back":"Create your account"}</p>
+        <img src={LOGO_SRC} style={{height:48,marginBottom:12,filter:"brightness(2)"}} alt="ingest.io"/>
+        <h1 style={{fontSize:22,fontWeight:800,letterSpacing:-.5,marginBottom:4,color:"#e2e8f0"}}>ingest<span style={{color:"#818cf8"}}>.io</span></h1>
+        <p style={{fontSize:12,color:"#64748b"}}>{mode==="login"?"Welcome back":"Create your account"}</p>
       </div>
       <div style={{marginBottom:12}}>
-        <input type="email" value={email} onChange={function(e){setEmail(e.target.value);setErr("");}} placeholder="Email" style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid rgba(0,0,0,.06)",fontSize:13,outline:"none",fontFamily:"'Sora',sans-serif",marginBottom:8,background:"rgba(255,255,255,.8)"}}/>
-        <input type="password" value={pass} onChange={function(e){setPass(e.target.value);setErr("");}} onKeyDown={function(e){if(e.key==="Enter")handleSubmit();}} placeholder="Password" style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid rgba(0,0,0,.06)",fontSize:13,outline:"none",fontFamily:"'Sora',sans-serif",background:"rgba(255,255,255,.8)"}}/>
+        <input type="email" value={email} onChange={function(e){setEmail(e.target.value);setErr("");}} placeholder="Email" style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.08)",fontSize:13,outline:"none",fontFamily:"'Sora',sans-serif",marginBottom:8,background:"rgba(255,255,255,.05)",color:"#e2e8f0"}}/>
+        <input type="password" value={pass} onChange={function(e){setPass(e.target.value);setErr("");}} onKeyDown={function(e){if(e.key==="Enter")handleSubmit();}} placeholder="Password" style={{width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,.08)",fontSize:13,outline:"none",fontFamily:"'Sora',sans-serif",background:"rgba(255,255,255,.05)",color:"#e2e8f0"}}/>
       </div>
       {err&&<div style={{fontSize:11,color:"#ef4444",marginBottom:8,textAlign:"center"}}>{err}</div>}
-      <button onClick={handleSubmit} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Sora',sans-serif",boxShadow:"0 4px 16px rgba(99,102,241,.25)",marginBottom:12}}>{mode==="login"?"Sign In":"Create Account"}</button>
-      <div style={{textAlign:"center",fontSize:11,color:"#a3b1c6"}}>
-        {mode==="login"?<span>No account? <button onClick={function(){setMode("signup");setErr("");}} style={{background:"none",border:"none",color:"#6366f1",cursor:"pointer",fontWeight:600,fontFamily:"'Sora',sans-serif",fontSize:11}}>Sign up</button></span>
-        :<span>Have an account? <button onClick={function(){setMode("login");setErr("");}} style={{background:"none",border:"none",color:"#6366f1",cursor:"pointer",fontWeight:600,fontFamily:"'Sora',sans-serif",fontSize:11}}>Sign in</button></span>}
+      <button onClick={handleSubmit} disabled={loading} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"'Sora',sans-serif",boxShadow:"0 4px 16px rgba(99,102,241,.3)",marginBottom:12,opacity:loading?.6:1}}>{loading?"...":(mode==="login"?"Sign In":"Create Account")}</button>
+      <div style={{textAlign:"center",fontSize:11,color:"#64748b"}}>
+        {mode==="login"?<span>No account? <button onClick={function(){setMode("signup");setErr("");}} style={{background:"none",border:"none",color:"#818cf8",cursor:"pointer",fontWeight:600,fontFamily:"'Sora',sans-serif",fontSize:11}}>Sign up</button></span>
+        :<span>Have an account? <button onClick={function(){setMode("login");setErr("");}} style={{background:"none",border:"none",color:"#818cf8",cursor:"pointer",fontWeight:600,fontFamily:"'Sora',sans-serif",fontSize:11}}>Sign in</button></span>}
       </div>
     </div>
   </div>;
 }
+
 
 /* ═════ MAIN APP ═════ */
 export default function App(){
@@ -183,18 +307,23 @@ export default function App(){
   var[dragId,setDragId]=useState(null);var[dragType,setDragType]=useState(null);var[didDrag,setDidDrag]=useState(false);
   var[shiftHeld,setSH]=useState(false);var[linkFrom,setLF]=useState(null);var[linkMousePos,setLMP]=useState(null);
   var[clearStep,setCS]=useState(0);
+  var[dark,setDark]=useState(false);
+  var[showSettings,setShowSettings]=useState(false);
+  var[defaultView,setDefaultView]=useState("canvas");
+
+  var t=T(dark);
 
   useEffect(function(){
     function kd(e){
       if(e.key===" "&&e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA"){e.preventDefault();setSpace(true);}
       if(e.key==="Shift")setSH(true);
       if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setModal(true);}
-      if(e.key==="Escape"){if(linkFrom){setLF(null);setLMP(null);}else if(modal)setModal(false);else if(sel)setSel(null);}
+      if(e.key==="Escape"){if(linkFrom){setLF(null);setLMP(null);}else if(showSettings)setShowSettings(false);else if(modal)setModal(false);else if(sel)setSel(null);}
     }
     function ku(e){if(e.key===" ")setSpace(false);if(e.key==="Shift")setSH(false);}
     window.addEventListener("keydown",kd);window.addEventListener("keyup",ku);
     return function(){window.removeEventListener("keydown",kd);window.removeEventListener("keyup",ku);};
-  },[modal,sel,linkFrom]);
+  },[modal,sel,linkFrom,showSettings]);
   useEffect(function(){if(modal&&iRef.current)setTimeout(function(){iRef.current.focus();},120);},[modal]);
 
   var onBgDown=useCallback(function(e){if(space||e.button===1){setPanning(true);e.preventDefault();}},[space]);
@@ -210,7 +339,6 @@ export default function App(){
   var onUp=useCallback(function(){setPanning(false);setDragId(null);setDragType(null);setTimeout(function(){setDidDrag(false);},60);},[]);
   var onWheel=useCallback(function(e){e.preventDefault();setZoom(function(z){return Math.min(2,Math.max(0.15,z-e.deltaY*0.001));});},[]);
 
-  /* Auth gate - AFTER all hooks */
   if(!authed)return <LoginScreen onLogin={function(e){setUser(e);setAuthed(true);}}/>;
 
   function startDrag(e,id,type){
@@ -251,124 +379,130 @@ export default function App(){
   function deleteCard(id){setCards(function(cs){return cs.filter(function(c){return c.id!==id;});});setConns(function(cs){return cs.filter(function(c){return c.from!==id&&c.to!==id;});});if(sel&&sel.id===id)setSel(null);}
 
   var types=["ALL"].concat(Array.from(new Set(cards.filter(function(c){return c.status==="complete";}).map(function(c){return c.type;}))));
-  var filtered=cards.filter(function(c){return filter==="ALL"||c.type===filter;}).filter(function(c){if(!search)return true;var q=search.toLowerCase();return c.title.toLowerCase().indexOf(q)!==-1||(c.summary||"").toLowerCase().indexOf(q)!==-1||c.tags.some(function(t){return t.toLowerCase().indexOf(q)!==-1;})||c.cat.toLowerCase().indexOf(q)!==-1;});
+  var filtered=cards.filter(function(c){return filter==="ALL"||c.type===filter;}).filter(function(c){if(!search)return true;var q=search.toLowerCase();return c.title.toLowerCase().indexOf(q)!==-1||(c.summary||"").toLowerCase().indexOf(q)!==-1||c.tags.some(function(tg){return tg.toLowerCase().indexOf(q)!==-1;})||c.cat.toLowerCase().indexOf(q)!==-1;});
   var catCounts={};cards.forEach(function(c){catCounts[c.cat]=(catCounts[c.cat]||0)+1;});
+  var visibleCards=filtered.filter(function(c){return !c.hiddenFromCanvas&&c.status==="complete";});
   var boardGroups={};filtered.filter(function(c){return c.status==="complete";}).forEach(function(c){if(!boardGroups[c.cat])boardGroups[c.cat]=[];boardGroups[c.cat].push(c);});
 
   return <div>
-    <style>{String.raw`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden}::selection{background:rgba(99,102,241,.12)}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.06);border-radius:3px}@keyframes su{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}`}</style>
-    <div style={{height:"100vh",display:"flex",flexDirection:"column",fontFamily:"'Sora',sans-serif",color:"#1e1e2e",background:"linear-gradient(135deg,#e0e7ff 0%,#cffafe 25%,#ede9fe 50%,#e0f2fe 75%,#fce7f3 100%)",backgroundSize:"400% 400%",animation:"bg 15s ease infinite"}}>
+    <style>{String.raw`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{overflow:hidden}::selection{background:rgba(99,102,241,.12)}::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:3px}@keyframes su{from{transform:translateX(100%)}to{transform:translateX(0)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes bg{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}`}</style>
+    <div style={{height:"100vh",display:"flex",flexDirection:"column",fontFamily:"'Sora',sans-serif",color:t.text,background:t.bgGrad,backgroundSize:"400% 400%",animation:"bg 15s ease infinite",position:"relative"}}>
+      {/* Stars in dark mode */}
+      {dark&&Array.from({length:40}).map(function(_,i){return <div key={"s"+i} style={{position:"fixed",left:Math.random()*100+"%",top:Math.random()*100+"%",width:Math.random()*2+1,height:Math.random()*2+1,borderRadius:"50%",background:"#fff",opacity:Math.random()*.3+.05,animation:"twinkle "+(3+Math.random()*5)+"s ease infinite",animationDelay:Math.random()*4+"s",zIndex:0,pointerEvents:"none"}}></div>;})}
+
       {/* Header */}
-      <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 18px",flexShrink:0,borderBottom:"1px solid rgba(0,0,0,.03)",background:"rgba(255,255,255,.5)",backdropFilter:"blur(20px)",zIndex:50}}>
+      <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 18px",flexShrink:0,borderBottom:"1px solid "+t.headerBorder,background:t.headerBg,backdropFilter:"blur(20px)",zIndex:50}}>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
-          <img src={LOGO_SRC} style={{height:22}} alt=""/>
-          <div style={{display:"flex",background:"rgba(0,0,0,.03)",borderRadius:9,padding:2}}>
-            {["canvas","list","board"].map(function(v){return <button key={v} onClick={function(){setView(v);}} style={{padding:"4px 12px",borderRadius:7,border:"none",background:view===v?"rgba(255,255,255,.8)":"transparent",color:view===v?"#1e1e2e":"#a3b1c6",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif",textTransform:"capitalize",boxShadow:view===v?"0 1px 3px rgba(0,0,0,.03)":"none"}}>{v}</button>;})}
+          <img src={LOGO_SRC} style={{height:22,filter:dark?"brightness(2)":"none"}} alt=""/>
+          <div style={{display:"flex",background:t.surface,borderRadius:9,padding:2}}>
+            {["canvas","list","board"].map(function(v){return <button key={v} onClick={function(){setView(v);}} style={{padding:"4px 12px",borderRadius:7,border:"none",background:view===v?t.surfaceHover:"transparent",color:view===v?t.text:t.textSub,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif",textTransform:"capitalize"}}>{v}</button>;})}
           </div>
           <div style={{display:"flex",gap:2}}>
-            {types.map(function(t){var ts2=t!=="ALL"?TS[t]:null;var a=filter===t;return <button key={t} onClick={function(){setFilter(t);}} style={{padding:"3px 9px",borderRadius:20,border:a?"none":"1px solid rgba(0,0,0,.04)",background:a?(ts2?ts2.color+"15":"rgba(99,102,241,.06)"):"rgba(255,255,255,.5)",color:a?(ts2?ts2.color:"#6366f1"):"#a3b1c6",fontSize:9,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif"}}>{t==="ALL"?"All":ts2?ts2.label:t}</button>;})}
+            {types.map(function(tp){var ts2=tp!=="ALL"?TS[tp]:null;var a=filter===tp;return <button key={tp} onClick={function(){setFilter(tp);}} style={{padding:"3px 9px",borderRadius:20,border:a?"none":"1px solid "+t.inputBorder,background:a?(ts2?ts2.color+"15":"rgba(99,102,241,.06)"):t.surface,color:a?(ts2?ts2.color:"#6366f1"):t.textSub,fontSize:9,fontWeight:600,cursor:"pointer",fontFamily:"'Sora',sans-serif"}}>{tp==="ALL"?"All":ts2?ts2.label:tp}</button>;})}
           </div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <input type="text" value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Search..." style={{width:150,padding:"6px 10px",background:"rgba(255,255,255,.6)",border:"1px solid rgba(0,0,0,.04)",borderRadius:9,fontSize:11,outline:"none",fontFamily:"'Sora',sans-serif"}}/>
+          <input type="text" value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Search..." style={{width:150,padding:"6px 10px",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:9,fontSize:11,outline:"none",fontFamily:"'Sora',sans-serif",color:t.text}}/>
           <button onClick={function(){setModal(true);}} style={{padding:"6px 14px",borderRadius:9,border:"none",background:"#6366f1",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'Sora',sans-serif",boxShadow:"0 2px 8px rgba(99,102,241,.2)"}}>+ Ingest</button>
-          <div style={{fontSize:10,color:"#a3b1c6",padding:"4px 8px",borderRadius:8,background:"rgba(255,255,255,.4)"}}>{user.split("@")[0]}</div>
+          <button onClick={function(){setDark(!dark);}} style={{width:28,height:28,borderRadius:8,border:"none",background:t.surface,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}} title="Toggle theme">{dark?"\u2600\uFE0F":"\uD83C\uDF19"}</button>
+          <button onClick={function(){setShowSettings(true);}} style={{width:28,height:28,borderRadius:8,border:"none",background:t.surface,cursor:"pointer",fontSize:12,color:t.textSub,display:"flex",alignItems:"center",justifyContent:"center"}} title="Settings">{"\u2699\uFE0F"}</button>
         </div>
       </header>
 
       {/* Canvas */}
       {view==="canvas"&&<div onMouseDown={onBgDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} onWheel={onWheel} style={{flex:1,overflow:"hidden",cursor:space?(panning?"grabbing":"grab"):"default",position:"relative",userSelect:"none"}}>
         {/* Toolbar */}
-        <div style={{position:"absolute",bottom:12,left:"50%",transform:"translateX(-50%)",zIndex:40,display:"flex",gap:2,background:"rgba(255,255,255,.7)",backdropFilter:"blur(16px)",borderRadius:14,padding:"3px 5px",boxShadow:"0 4px 20px rgba(0,0,0,.04)",border:"1px solid rgba(255,255,255,.5)"}}>
-          <button onClick={addNote} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:"#64748b",fontFamily:"'Sora',sans-serif"}}>{"\uD83D\uDCDD"} Note</button>
-          <button onClick={function(){setModal(true);}} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:"#64748b",fontFamily:"'Sora',sans-serif"}}>{"\uD83D\uDD17"} Link</button>
-          <button onClick={addCategory} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:"#64748b",fontFamily:"'Sora',sans-serif"}}>{"\uD83D\uDCC2"} Category</button>
-          <div style={{width:1,height:14,background:"rgba(0,0,0,.06)",alignSelf:"center"}}></div>
+        <div style={{position:"absolute",bottom:12,left:"50%",transform:"translateX(-50%)",zIndex:40,display:"flex",gap:2,background:t.toolbarBg,backdropFilter:"blur(16px)",borderRadius:14,padding:"3px 5px",boxShadow:"0 4px 20px rgba(0,0,0,.08)",border:"1px solid "+t.toolbarBorder}}>
+          <button onClick={addNote} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:t.textMuted,fontFamily:"'Sora',sans-serif"}}>{"\uD83D\uDCDD"} Note</button>
+          <button onClick={function(){setModal(true);}} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:t.textMuted,fontFamily:"'Sora',sans-serif"}}>{"\uD83D\uDD17"} Link</button>
+          <button onClick={addCategory} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:t.textMuted,fontFamily:"'Sora',sans-serif"}}>{"\uD83D\uDCC2"} Category</button>
+          <div style={{width:1,height:14,background:t.toolbarBorder,alignSelf:"center"}}></div>
           <button onClick={organize} style={{padding:"5px 12px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:"#6366f1",fontFamily:"'Sora',sans-serif"}}>{"\u2726"} Organize</button>
-          <div style={{width:1,height:14,background:"rgba(0,0,0,.06)",alignSelf:"center"}}></div>
-          {clearStep===0&&<button onClick={function(){setCS(1);setTimeout(function(){setCS(0);},4000);}} style={{padding:"5px 10px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:"#a3b1c6",fontFamily:"'Sora',sans-serif"}}>Clear</button>}
+          <div style={{width:1,height:14,background:t.toolbarBorder,alignSelf:"center"}}></div>
+          {clearStep===0&&<button onClick={function(){setCS(1);setTimeout(function(){setCS(0);},4000);}} style={{padding:"5px 10px",borderRadius:8,border:"none",background:"none",cursor:"pointer",fontSize:10,fontWeight:600,color:t.textSub,fontFamily:"'Sora',sans-serif"}}>Clear</button>}
           {clearStep===1&&<button onClick={function(){setCS(2);setTimeout(function(){setCS(0);},4000);}} style={{padding:"5px 10px",borderRadius:8,border:"none",background:"rgba(239,68,68,.06)",cursor:"pointer",fontSize:10,fontWeight:700,color:"#ef4444",fontFamily:"'Sora',sans-serif",animation:"pulse 1s infinite"}}>Sure?</button>}
           {clearStep===2&&<button onClick={clearCanvas} style={{padding:"5px 10px",borderRadius:8,border:"none",background:"#ef4444",cursor:"pointer",fontSize:10,fontWeight:700,color:"#fff",fontFamily:"'Sora',sans-serif"}}>Yes, clear all</button>}
-          <div style={{width:1,height:14,background:"rgba(0,0,0,.06)",alignSelf:"center"}}></div>
-          <button onClick={function(){setZoom(function(z){return Math.max(.15,z-.15);});}} style={{padding:"5px 6px",border:"none",background:"none",cursor:"pointer",fontSize:11,color:"#a3b1c6"}}>{"\u2212"}</button>
-          <span style={{fontSize:9,color:"#a3b1c6",width:30,textAlign:"center",alignSelf:"center"}}>{Math.round(zoom*100)}%</span>
-          <button onClick={function(){setZoom(function(z){return Math.min(2,z+.15);});}} style={{padding:"5px 6px",border:"none",background:"none",cursor:"pointer",fontSize:11,color:"#a3b1c6"}}>+</button>
+          <div style={{width:1,height:14,background:t.toolbarBorder,alignSelf:"center"}}></div>
+          <button onClick={function(){setZoom(function(z){return Math.max(.15,z-.15);});}} style={{padding:"5px 6px",border:"none",background:"none",cursor:"pointer",fontSize:11,color:t.textSub}}>{"\u2212"}</button>
+          <span style={{fontSize:9,color:t.textSub,width:30,textAlign:"center",alignSelf:"center"}}>{Math.round(zoom*100)}%</span>
+          <button onClick={function(){setZoom(function(z){return Math.min(2,z+.15);});}} style={{padding:"5px 6px",border:"none",background:"none",cursor:"pointer",fontSize:11,color:t.textSub}}>+</button>
         </div>
         {linkFrom&&<div style={{position:"absolute",bottom:48,left:"50%",transform:"translateX(-50%)",zIndex:41,background:"#6366f1",color:"#fff",padding:"6px 16px",borderRadius:10,fontSize:11,fontWeight:600,boxShadow:"0 4px 16px rgba(99,102,241,.25)"}}>Click another card to connect</div>}
-        {shiftHeld&&!linkFrom&&<div style={{position:"absolute",bottom:48,left:"50%",transform:"translateX(-50%)",zIndex:41,background:"rgba(99,102,241,.08)",color:"#6366f1",padding:"5px 14px",borderRadius:10,fontSize:10,fontWeight:600,border:"1px solid rgba(99,102,241,.15)"}}>Shift+Click to link</div>}
+
+        {/* Minimap */}
+        <Minimap cards={visibleCards} cats={cats} theme={t}/>
 
         <div style={{transform:"translate("+pan.x+"px,"+pan.y+"px) scale("+zoom+")",transformOrigin:"0 0",position:"absolute",inset:0,transition:dragId?"none":"transform .12s ease-out"}}>
-          {/* Ambient */}
-          <div style={{position:"absolute",left:200,top:100,width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,.08) 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
-          <div style={{position:"absolute",left:900,top:50,width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(6,182,212,.06) 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
-          <div style={{position:"absolute",left:600,top:500,width:550,height:550,borderRadius:"50%",background:"radial-gradient(circle,rgba(139,92,246,.06) 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
-          <div style={{position:"absolute",left:100,top:550,width:450,height:450,borderRadius:"50%",background:"radial-gradient(circle,rgba(245,158,11,.05) 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
+          {/* Ambient blobs */}
+          <div style={{position:"absolute",left:200,top:100,width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,"+t.blob1+" 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
+          <div style={{position:"absolute",left:900,top:50,width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,"+t.blob2+" 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
+          <div style={{position:"absolute",left:600,top:500,width:550,height:550,borderRadius:"50%",background:"radial-gradient(circle,"+t.blob3+" 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
+          <div style={{position:"absolute",left:100,top:550,width:450,height:450,borderRadius:"50%",background:"radial-gradient(circle,"+t.blob4+" 0%,transparent 60%)",filter:"blur(60px)",pointerEvents:"none"}}></div>
           {/* Categories */}
-          {Object.entries(cats).map(function([nm,cf]){return <CatHub key={nm} name={nm} conf={cf} zoom={zoom} count={catCounts[nm]||0} onDragStart={startDrag} onDelete={deleteCategory} onRename={renameCategory}/>;})}
+          {Object.entries(cats).map(function([nm,cf]){return <CatHub key={nm} name={nm} conf={cf} zoom={zoom} count={catCounts[nm]||0} onDragStart={startDrag} onDelete={deleteCategory} onRename={renameCategory} theme={t}/>;})}
           {/* Link preview */}
           {linkFrom&&linkMousePos&&(function(){var fc=cards.find(function(c){return c.id===linkFrom;});if(!fc)return null;return <svg style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:30,overflow:"visible"}}><line x1={fc.cx+70} y1={fc.cy+16} x2={linkMousePos.x} y2={linkMousePos.y} stroke="#6366f1" strokeWidth={2} strokeDasharray="6 4" opacity={0.5}></line></svg>;}())}
-          {/* Lines */}
+          {/* Connection lines */}
           {zoom>0.25&&<svg style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:2,overflow:"visible"}}>
-            {filtered.filter(function(c){return c.status==="complete"&&!c.hiddenFromCanvas;}).map(function(c,i){var cat=cats[c.cat];if(!cat)return null;return <path key={"cl"+i} d={"M"+cat.x+","+cat.y+" Q"+((cat.x+c.cx+70)/2)+","+((cat.y+c.cy+16)/2-8)+" "+(c.cx+70)+","+(c.cy+16)} fill="none" stroke={cat.color} strokeWidth={1} opacity={0.12}/>;})}
-            {conns.map(function(cn){var a=filtered.find(function(c){return c.id===cn.from&&!c.hiddenFromCanvas;}),b=filtered.find(function(c){return c.id===cn.to&&!c.hiddenFromCanvas;});if(!a||!b)return null;var ax=a.cx+70,ay=a.cy+16,bx=b.cx+70,by=b.cy+16,mx=(ax+bx)/2,my=(ay+by)/2-12;return <g key={cn.id}><path d={"M"+ax+","+ay+" Q"+mx+","+my+" "+bx+","+by} fill="none" stroke="rgba(99,102,241,.08)" strokeWidth={1.5}/><path d={"M"+ax+","+ay+" Q"+mx+","+my+" "+bx+","+by} fill="none" stroke="transparent" strokeWidth={14} style={{pointerEvents:"stroke",cursor:"pointer"}} onClick={function(){setConns(function(cs){return cs.filter(function(c){return c.id!==cn.id;});});}}/></g>;})}
+            {visibleCards.map(function(c,i){var cat=cats[c.cat];if(!cat)return null;return <path key={"cl"+i} d={"M"+cat.x+","+cat.y+" Q"+((cat.x+c.cx+70)/2)+","+((cat.y+c.cy+16)/2-8)+" "+(c.cx+70)+","+(c.cy+16)} fill="none" stroke={cat.color} strokeWidth={1} opacity={0.12}/>;})}
+            {conns.map(function(cn){var a=visibleCards.find(function(c){return c.id===cn.from;}),b=visibleCards.find(function(c){return c.id===cn.to;});if(!a||!b)return null;var ax=a.cx+70,ay=a.cy+16,bx=b.cx+70,by=b.cy+16;return <g key={cn.id}><path d={"M"+ax+","+ay+" Q"+((ax+bx)/2)+","+((ay+by)/2-12)+" "+bx+","+by} fill="none" stroke="rgba(99,102,241,.1)" strokeWidth={1.5}/><path d={"M"+ax+","+ay+" Q"+((ax+bx)/2)+","+((ay+by)/2-12)+" "+bx+","+by} fill="none" stroke="transparent" strokeWidth={14} style={{pointerEvents:"stroke",cursor:"pointer"}} onClick={function(){setConns(function(cs){return cs.filter(function(c){return c.id!==cn.id;});});}}/></g>;})}
           </svg>}
           {/* Notes */}
-          {notes.map(function(n){return zoom<0.35?null:<div key={n.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,n.id,"note");}} style={{position:"absolute",left:n.x,top:n.y,width:150,minHeight:38,background:(n.color||"#6366f1")+"12",borderRadius:12,padding:"9px 11px",cursor:"grab",boxShadow:"0 1px 6px rgba(0,0,0,.02)",border:"1px solid rgba(99,102,241,.05)",zIndex:5,fontSize:12,lineHeight:1.5,color:"#64748b"}}><div onDoubleClick={function(){var t=prompt("Edit note:",n.text);if(t!==null)setNotes(function(ns){return ns.map(function(x){return x.id===n.id?Object.assign({},x,{text:t}):x;});});}}>{n.text}</div><button onClick={function(e){e.stopPropagation();setNotes(function(ns){return ns.filter(function(x){return x.id!==n.id;});});}} style={{position:"absolute",top:2,right:5,background:"none",border:"none",cursor:"pointer",fontSize:8,color:"#a3b1c6",opacity:.3}}>{"\u2715"}</button></div>;})}
+          {notes.map(function(n){return zoom<0.35?null:<div key={n.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,n.id,"note");}} style={{position:"absolute",left:n.x,top:n.y,width:150,minHeight:38,background:(n.color||"#6366f1")+"12",borderRadius:12,padding:"9px 11px",cursor:"grab",border:"1px solid "+t.cardBorder,zIndex:5,fontSize:12,lineHeight:1.5,color:t.textMuted}}><div onDoubleClick={function(){var tx=prompt("Edit note:",n.text);if(tx!==null)setNotes(function(ns){return ns.map(function(x){return x.id===n.id?Object.assign({},x,{text:tx}):x;});});}}>{n.text}</div><button onClick={function(e){e.stopPropagation();setNotes(function(ns){return ns.filter(function(x){return x.id!==n.id;});});}} style={{position:"absolute",top:2,right:5,background:"none",border:"none",cursor:"pointer",fontSize:8,color:t.textSub,opacity:.3}}>{"\u2715"}</button></div>;})}
           {/* Cards */}
           {filtered.filter(function(c){return !c.hiddenFromCanvas;}).map(function(card){
             var ts2=TS[card.type]||TS.OTHER,sc2=sC(card.score),isIng=card.status==="ingesting",stale=card.score<50;
-            if(zoom<0.35)return <div key={card.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,card.id,"card");}} onClick={function(){clickCard(card);}} style={{position:"absolute",left:card.cx,top:card.cy,width:10,height:10,borderRadius:"50%",background:isIng?"#a3b1c6":ts2.color,border:"2px solid rgba(255,255,255,.8)",boxShadow:"0 1px 4px rgba(0,0,0,.06)",cursor:"grab",zIndex:10,animation:isIng?"pulse 1.5s infinite":""}}></div>;
-            if(isIng)return <div key={card.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,card.id,"card");}} onClick={function(){clickCard(card);}} style={{position:"absolute",left:card.cx,top:card.cy,display:"inline-flex",alignItems:"center",gap:8,background:"rgba(255,255,255,.8)",backdropFilter:"blur(8px)",borderRadius:28,padding:"8px 16px 8px 11px",border:"1.5px dashed #6366f1",cursor:"grab",zIndex:10,whiteSpace:"nowrap"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:18,height:18,borderRadius:"50%",objectFit:"cover"}}></video><span style={{fontSize:13,fontWeight:500,color:"#6366f1"}}>Ingesting...</span><span style={{fontSize:11,color:"#a3b1c6"}}>{card.domain}</span></div>;
-            return <div key={card.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,card.id,"card");}} onClick={function(){clickCard(card);}} style={{position:"absolute",left:card.cx,top:card.cy,display:"inline-flex",alignItems:"center",gap:8,background:"rgba(255,255,255,.75)",backdropFilter:"blur(8px)",borderRadius:28,padding:"8px 16px 8px 11px",border:"1.5px solid "+(stale?"rgba(239,68,68,.15)":"rgba(255,255,255,.5)"),boxShadow:"0 2px 12px rgba(0,0,0,.03)",cursor:"grab",zIndex:10,whiteSpace:"nowrap",opacity:stale?0.55:1,transition:"all .25s"}}
-              onMouseEnter={function(e){if(!didDrag){e.currentTarget.style.boxShadow="0 8px 28px rgba(99,102,241,.1)";e.currentTarget.style.transform="translateY(-2px)";}}}
-              onMouseLeave={function(e){e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.03)";e.currentTarget.style.transform="none";}}>
-              <span style={{width:7,height:7,borderRadius:"50%",background:ts2.color,flexShrink:0}}></span><span style={{fontSize:13,fontWeight:600,letterSpacing:-.2}}>{card.title}</span><span style={{fontSize:11,fontWeight:700,color:sc2,opacity:.8}}>{card.score}</span>{card.pinned&&<span style={{fontSize:8,opacity:.4}}>{"\uD83D\uDCCC"}</span>}{card.ai&&<span style={{fontSize:8}}>{card.ai.type==="outdated"?"\u26A0\uFE0F":"\uD83D\uDCA1"}</span>}
+            if(zoom<0.35)return <div key={card.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,card.id,"card");}} onClick={function(){clickCard(card);}} style={{position:"absolute",left:card.cx,top:card.cy,width:10,height:10,borderRadius:"50%",background:isIng?t.textSub:ts2.color,border:"2px solid "+t.cardBorder,cursor:"grab",zIndex:10,animation:isIng?"pulse 1.5s infinite":""}}></div>;
+            if(isIng)return <div key={card.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,card.id,"card");}} onClick={function(){clickCard(card);}} style={{position:"absolute",left:card.cx,top:card.cy,display:"inline-flex",alignItems:"center",gap:8,background:t.card,backdropFilter:"blur(8px)",borderRadius:28,padding:"8px 16px 8px 11px",border:"1.5px dashed #6366f1",cursor:"grab",zIndex:10,whiteSpace:"nowrap"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:18,height:18,borderRadius:"50%",objectFit:"cover"}}></video><span style={{fontSize:13,fontWeight:500,color:"#6366f1"}}>Ingesting...</span><span style={{fontSize:11,color:t.textSub}}>{card.domain}</span></div>;
+            return <div key={card.id} onMouseDown={function(e){e.stopPropagation();startDrag(e,card.id,"card");}} onClick={function(){clickCard(card);}} style={{position:"absolute",left:card.cx,top:card.cy,display:"inline-flex",alignItems:"center",gap:8,background:t.card,backdropFilter:"blur(8px)",borderRadius:28,padding:"8px 16px 8px 11px",border:"1.5px solid "+(stale?"rgba(239,68,68,.15)":t.cardBorder),boxShadow:"0 2px 12px rgba(0,0,0,"+(dark?".2":".03")+")",cursor:"grab",zIndex:10,whiteSpace:"nowrap",opacity:stale?0.55:1,transition:"all .25s"}}>
+              <span style={{width:7,height:7,borderRadius:"50%",background:ts2.color,flexShrink:0}}></span><span style={{fontSize:13,fontWeight:600,letterSpacing:-.2,color:t.text}}>{card.title}</span><span style={{fontSize:11,fontWeight:700,color:sc2,opacity:.8}}>{card.score}</span>{card.pinned&&<span style={{fontSize:8,opacity:.4}}>{"\uD83D\uDCCC"}</span>}{card.ai&&<span style={{fontSize:8}}>{card.ai.type==="outdated"?"\u26A0\uFE0F":"\uD83D\uDCA1"}</span>}
             </div>;
           })}
         </div>
       </div>}
 
-      {/* List */}
-      {view==="list"&&<div style={{flex:1,overflowY:"auto",padding:"10px 18px 32px"}}>{filtered.map(function(card,i){
-        if(card.status==="ingesting")return <div key={card.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"rgba(255,255,255,.6)",borderRadius:12,border:"1.5px dashed #6366f1",marginBottom:5,animation:"pulse 1.5s infinite"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:16,height:16,borderRadius:"50%"}}></video><span style={{fontSize:12,fontWeight:500,color:"#6366f1"}}>Ingesting {card.domain}...</span></div>;
+      {/* List View */}
+      {view==="list"&&<div style={{flex:1,overflowY:"auto",padding:"10px 18px 32px"}}>{filtered.map(function(card){
+        if(card.status==="ingesting")return <div key={card.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.card,borderRadius:12,border:"1.5px dashed #6366f1",marginBottom:5,animation:"pulse 1.5s infinite"}}><video src={VIDEO_SRC} autoPlay loop muted playsInline style={{width:16,height:16,borderRadius:"50%"}}></video><span style={{fontSize:12,fontWeight:500,color:"#6366f1"}}>Ingesting {card.domain}...</span></div>;
         var ts2=TS[card.type]||TS.OTHER,sc2=sC(card.score),isH=card.hiddenFromCanvas;
-        return <div key={card.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",background:isH?"rgba(255,255,255,.35)":"rgba(255,255,255,.65)",backdropFilter:"blur(8px)",borderRadius:12,border:"1px solid rgba(255,255,255,.4)",cursor:"pointer",transition:"all .2s",marginBottom:5,opacity:isH?0.5:1}}>
+        return <div key={card.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 14px",background:isH?t.surface:t.card,backdropFilter:"blur(8px)",borderRadius:12,border:"1px solid "+t.cardBorder,cursor:"pointer",transition:"all .2s",marginBottom:5,opacity:isH?0.5:1}}>
           <div onClick={function(){setSel(card);}} style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
-            <span style={{width:6,height:6,borderRadius:"50%",background:ts2.color,flexShrink:0}}></span><div style={{flex:1,minWidth:0}}><span style={{fontSize:13,fontWeight:600}}>{card.title}</span><span style={{fontSize:11,color:"#a3b1c6",marginLeft:6}}>{card.sub}</span></div>
-            <span style={{fontSize:9,color:"#a3b1c6",flexShrink:0}}>{card.cat}</span>
+            <span style={{width:6,height:6,borderRadius:"50%",background:ts2.color,flexShrink:0}}></span><div style={{flex:1,minWidth:0}}><span style={{fontSize:13,fontWeight:600,color:t.text}}>{card.title}</span><span style={{fontSize:11,color:t.textSub,marginLeft:6}}>{card.sub}</span></div>
+            <span style={{fontSize:9,color:t.textSub,flexShrink:0}}>{card.cat}</span>
             <span style={{padding:"2px 7px",borderRadius:12,fontSize:10,fontWeight:700,background:sBg(card.score),color:sc2,flexShrink:0}}>{card.score}</span>
           </div>
-          <button onClick={function(e){e.stopPropagation();updateCard(card.id,{hiddenFromCanvas:!isH});}} title={isH?"Show on canvas":"Hide from canvas"} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:isH?"#a3b1c6":"#6366f1",padding:"2px 4px",opacity:isH?0.4:0.6,flexShrink:0}}>{isH?"\uD83D\uDC41\u200D\uD83D\uDE36":"\uD83D\uDC41"}</button>
-          <button onClick={function(e){e.stopPropagation();deleteCard(card.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#a3b1c6",padding:"2px 4px",opacity:.3,flexShrink:0}}>{"\u2715"}</button>
+          <button onClick={function(e){e.stopPropagation();updateCard(card.id,{hiddenFromCanvas:!isH});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:isH?t.textSub:"#6366f1",padding:"2px 4px",opacity:isH?0.4:0.6,flexShrink:0}}>{isH?"\uD83D\uDC41\u200D\uD83D\uDE36":"\uD83D\uDC41"}</button>
+          <button onClick={function(e){e.stopPropagation();deleteCard(card.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:t.textSub,padding:"2px 4px",opacity:.3,flexShrink:0}}>{"\u2715"}</button>
         </div>;
       })}</div>}
 
-      {/* Board */}
+      {/* Board View */}
       {view==="board"&&<div style={{flex:1,overflowX:"auto",overflowY:"hidden",padding:"12px 18px",display:"flex",gap:12}}>
         {Object.entries(boardGroups).map(function([cat,cc]){var catC=cats[cat]||{color:"#999"};return <div key={cat} style={{minWidth:250,maxWidth:280,flexShrink:0,display:"flex",flexDirection:"column"}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"0 2px"}}><span style={{width:6,height:6,borderRadius:"50%",background:catC.color}}></span><span style={{fontSize:12,fontWeight:700}}>{cat}</span><span style={{fontSize:9,color:"#a3b1c6"}}>{cc.length}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"0 2px"}}><span style={{width:6,height:6,borderRadius:"50%",background:catC.color}}></span><span style={{fontSize:12,fontWeight:700,color:t.text}}>{cat}</span><span style={{fontSize:9,color:t.textSub}}>{cc.length}</span></div>
           <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
-            {cc.map(function(card){var ts2=TS[card.type]||TS.OTHER,sc2=sC(card.score);return <div key={card.id} onClick={function(){setSel(card);}} style={{background:"rgba(255,255,255,.65)",backdropFilter:"blur(8px)",borderRadius:14,padding:12,cursor:"pointer",border:"1px solid rgba(255,255,255,.4)",transition:"all .2s"}}>
+            {cc.map(function(card){var ts2=TS[card.type]||TS.OTHER,sc2=sC(card.score);return <div key={card.id} onClick={function(){setSel(card);}} style={{background:t.card,backdropFilter:"blur(8px)",borderRadius:14,padding:12,cursor:"pointer",border:"1px solid "+t.cardBorder}}>
               <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}><span style={{padding:"2px 6px",borderRadius:10,fontSize:8,fontWeight:600,background:ts2.color+"15",color:ts2.color}}>{ts2.icon}</span><span style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:sc2}}>{card.score}</span></div>
-              <h4 style={{fontSize:13,fontWeight:700,marginBottom:1}}>{card.title}</h4><p style={{fontSize:10,color:"#a3b1c6",marginBottom:4}}>{card.sub}</p>
-              <p style={{fontSize:10,lineHeight:1.4,color:"#64748b",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{stripCite(card.summary)}</p>
+              <h4 style={{fontSize:13,fontWeight:700,marginBottom:1,color:t.text}}>{card.title}</h4><p style={{fontSize:10,color:t.textSub,marginBottom:4}}>{card.sub}</p>
+              <p style={{fontSize:10,lineHeight:1.4,color:t.textMuted,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{stripCite(card.summary)}</p>
             </div>;})}
           </div>
         </div>;})}
       </div>}
     </div>
 
-    {sel&&<Drawer card={sel} onClose={function(){setSel(null);}} onUpdate={updateCard} onDelete={deleteCard}/>}
+    {sel&&<Drawer card={sel} onClose={function(){setSel(null);}} onUpdate={updateCard} onDelete={deleteCard} theme={t}/>}
+    {showSettings&&<SettingsPanel dark={dark} onTheme={setDark} user={user} defaultView={defaultView} onDefaultView={setDefaultView} onClose={function(){setShowSettings(false);}} onSignOut={function(){setAuthed(false);setUser("");}} theme={t}/>}
 
-    {modal&&<div onClick={function(){setModal(false);}} style={{position:"fixed",inset:0,zIndex:200,background:"rgba(30,30,46,.08)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"18vh"}}>
-      <div onClick={function(e){e.stopPropagation();}} style={{width:"min(400px,90vw)",background:"rgba(255,255,255,.85)",backdropFilter:"blur(20px)",borderRadius:20,boxShadow:"0 24px 60px rgba(0,0,0,.07)",border:"1px solid rgba(255,255,255,.5)",overflow:"hidden"}}>
+    {modal&&<div onClick={function(){setModal(false);}} style={{position:"fixed",inset:0,zIndex:200,background:t.modalBg,backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"18vh"}}>
+      <div onClick={function(e){e.stopPropagation();}} style={{width:"min(400px,90vw)",background:t.modalCard,backdropFilter:"blur(20px)",borderRadius:20,boxShadow:"0 24px 60px rgba(0,0,0,.15)",border:"1px solid "+t.cardBorder,overflow:"hidden"}}>
         <div style={{padding:20}}>
-          <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>Drop a link</div>
-          <input ref={iRef} type="text" value={urlIn} onChange={function(e){setUrlIn(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")handleIngest();}} placeholder="Paste any URL..." style={{width:"100%",padding:"11px 12px",background:"rgba(255,255,255,.7)",border:"1px solid rgba(0,0,0,.05)",borderRadius:10,fontSize:13,outline:"none",fontFamily:"'Sora',sans-serif"}}/>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:12,color:t.text}}>Drop a link</div>
+          <input ref={iRef} type="text" value={urlIn} onChange={function(e){setUrlIn(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")handleIngest();}} placeholder="Paste any URL..." style={{width:"100%",padding:"11px 12px",background:t.inputBg,border:"1px solid "+t.inputBorder,borderRadius:10,fontSize:13,outline:"none",fontFamily:"'Sora',sans-serif",color:t.text}}/>
           <input type="text" value={intIn} onChange={function(e){setIntIn(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")handleIngest();}} placeholder="Why are you saving this?" style={{width:"100%",padding:"8px 12px",marginTop:6,background:"rgba(99,102,241,.04)",border:"1px solid rgba(99,102,241,.06)",borderRadius:8,fontSize:11,outline:"none",fontFamily:"'Sora',sans-serif",color:"#6366f1",fontStyle:"italic"}}/>
         </div>
-        <div style={{padding:"8px 20px",background:"rgba(0,0,0,.01)",borderTop:"1px solid rgba(0,0,0,.04)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:9,color:"#a3b1c6"}}>Enter to ingest</span>
+        <div style={{padding:"8px 20px",background:t.surface,borderTop:"1px solid "+t.cardBorder,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:9,color:t.textSub}}>Enter to ingest</span>
           <button onClick={handleIngest} style={{padding:"7px 18px",borderRadius:8,border:"none",background:"#6366f1",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'Sora',sans-serif"}}>Ingest</button>
         </div>
       </div>
